@@ -88,7 +88,7 @@ source .venv/bin/activate
 
 if [ "$PYTORCH_NIGHTLY" = true ]; then
     echo "📦 Installing PyTorch nightly (Blackwell support)..."
-    uv pip install --pre torch torchaudio --index-url https://download.pytorch.org/whl/nightly/cu126
+    uv pip install --pre torch torchaudio --index-url https://download.pytorch.org/whl/nightly/cu128
 else
     echo "📦 Installing PyTorch ($PYTORCH_CUDA)..."
     uv pip install torch torchaudio --index-url "https://download.pytorch.org/whl/$PYTORCH_CUDA"
