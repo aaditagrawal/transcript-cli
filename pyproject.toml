@@ -1,0 +1,99 @@
+[project]
+name = "transcript-cli"
+version = "0.1.0"
+description = "High-performance multi-engine audio/video transcription CLI"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Mav" }]
+keywords = ["transcription", "whisper", "speech-to-text", "audio", "cli"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Multimedia :: Sound/Audio :: Speech",
+]
+
+dependencies = [
+    "typer[all]>=0.9.0",
+    "rich>=13.0.0",
+    "pydub>=0.25.0",
+    "ffmpeg-python>=0.2.0",
+    "platformdirs>=4.0.0",
+]
+
+[project.optional-dependencies]
+# Faster Whisper - works on NVIDIA GPU and CPU
+faster = [
+    "faster-whisper>=1.0.0",
+]
+
+# Insanely Fast Whisper - NVIDIA GPU with maximum throughput
+insanely = [
+    "insanely-fast-whisper>=0.0.15",
+    "flash-attn>=2.0.0; platform_system != 'Darwin'",
+]
+
+# Parakeet TDT v3 - NVIDIA NeMo (large dependency)
+parakeet = [
+    "nemo_toolkit[asr]>=2.0.0",
+]
+
+# MLX Whisper - Apple Silicon native
+apple = [
+    "mlx-whisper>=0.4.0",
+]
+
+# All NVIDIA engines
+nvidia = [
+    "transcript-cli[faster,insanely,parakeet]",
+]
+
+# Build tools for creating standalone binaries
+build = [
+    "pyinstaller>=6.0.0",
+    "nuitka>=2.0.0",
+]
+
+# Development dependencies
+dev = [
+    "pytest>=8.0.0",
+    "pytest-cov>=4.0.0",
+    "ruff>=0.1.0",
+]
+
+[project.scripts]
+transcript = "transcript_cli.main:app"
+
+[project.urls]
+Homepage = "https://github.com/aaditagrawal/transcript-cli"
+Repository = "https://github.com/aaditagrawal/transcript-cli"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/transcript_cli"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+ignore = ["E501"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v --tb=short"
+
+# PyInstaller configuration hints
+[tool.pyinstaller]
+name = "transcript"
+onefile = true
+console = true
