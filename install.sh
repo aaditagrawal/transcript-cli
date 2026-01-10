@@ -98,8 +98,28 @@ echo "📦 Installing transcript-cli with insanely-fast-whisper engine..."
 uv pip install git+https://github.com/aaditagrawal/transcript-cli.git
 uv pip install insanely-fast-whisper transformers accelerate
 
-echo "📦 Installing Flash Attention 2 (optional, for better performance)..."
-uv pip install flash-attn --no-build-isolation 2>/dev/null || echo -e "${YELLOW}⚠️${NC} Flash Attention skipped (optional)"
+echo "📦 Installing Flash Attention 2..."
+# Install build dependencies (setuptools required for flash-attn)
+uv pip install ninja packaging setuptools wheel 2>/dev/null
+
+if [ "$PYTORCH_NIGHTLY" = true ]; then
+    # For Blackwell GPUs with nightly PyTorch, FA2 wheels may not exist yet
+    echo "   Attempting Flash Attention 2 installation..."
+    if uv pip install flash-attn --no-build-isolation 2>/dev/null; then
+        echo -e "${GREEN}✓${NC} Flash Attention 2 installed"
+    else
+        echo -e "${YELLOW}⚠️${NC} Flash Attention 2 not available for PyTorch nightly."
+        echo "   This is normal for new GPUs - PyTorch's built-in SDPA will be used instead."
+        echo "   Transcription will work fine, FA2 just provides extra speed."
+    fi
+else
+    # Standard installation for older GPUs
+    if uv pip install flash-attn --no-build-isolation 2>/dev/null; then
+        echo -e "${GREEN}✓${NC} Flash Attention 2 installed"
+    else
+        echo -e "${YELLOW}⚠️${NC} Flash Attention skipped (optional)"
+    fi
+fi
 
 # Create wrapper
 cat > "$HOME/.local/bin/transcript" << 'EOF'
