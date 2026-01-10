@@ -97,7 +97,7 @@ class InsanelyFastWhisperEngine(TranscriptionEngine):
         pipe = pipeline(
             "automatic-speech-recognition",
             model=model_name,
-            torch_dtype=torch.float16,
+            dtype=torch.float16,
             device="cuda:0",
             model_kwargs={"attn_implementation": "flash_attention_2"} if use_flash else {},
         )
