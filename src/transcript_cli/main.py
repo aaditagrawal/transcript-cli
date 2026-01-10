@@ -57,12 +57,12 @@ def main_callback(
         typer.Option("--version", "-v", help="Show version and exit"),
     ] = False,
     output_format: Annotated[
-        str,
-        typer.Option("--format", "-f", help="Output format"),
-    ] = "text",
+        Optional[str],
+        typer.Option("--format", "-f", help="Output format (text/srt/vtt/json)"),
+    ] = None,
     model: Annotated[
         Optional[str],
-        typer.Option("--model", "-m", help="Model size"),
+        typer.Option("--model", "-m", help="Model size (base/small/medium/large-v3/turbo)"),
     ] = None,
     recursive: Annotated[
         bool,
@@ -85,6 +85,16 @@ def main_callback(
         if not path.exists():
             print_error(f"File not found: {path}")
             raise typer.Exit(1)
+        
+        print_banner()
+        
+        # Interactive prompts if not specified
+        if output_format is None:
+            output_format = prompt_output_format(OUTPUT_FORMATS)
+        
+        if model is None:
+            model = prompt_model_choice(WHISPER_MODELS, default="base")
+        
         ctx.invoke(
             transcribe,
             path=path,

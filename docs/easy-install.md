@@ -6,17 +6,34 @@
 curl -sSL https://raw.githubusercontent.com/aaditagrawal/transcript-cli/main/install.sh | bash
 ```
 
-Restart terminal, then:
+Restart terminal.
+
+## Usage
+
+### Just Run It
 
 ```bash
-transcript video.mp4              # Text
-transcript video.mp4 -f srt       # Subtitles
+transcript video.mp4
 ```
 
-## Requirements
+You'll be asked:
+- **Output format**: text, srt (subtitles), vtt, json
+- **Model size**: base (fast), large-v3 (best quality), turbo (fast + good)
 
-- NVIDIA GPU with drivers (`nvidia-smi` should work)
-- FFmpeg (`sudo apt install ffmpeg`)
+### Skip Prompts
+
+```bash
+transcript video.mp4 -f srt -m base
+```
+
+## Quick Reference
+
+| What You Want | Command |
+|---------------|---------|
+| Subtitles | `transcript video.mp4 -f srt` |
+| Best quality | `transcript video.mp4 -m large-v3` |
+| Fast + good | `transcript video.mp4 -m turbo` |
+| All files in folder | `transcript ~/Videos -r` |
 
 ## Uninstall
 
