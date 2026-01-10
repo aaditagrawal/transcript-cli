@@ -230,6 +230,7 @@ def transcribe(
     start_time = time.time()
     total_duration = 0.0
     all_results = []
+    errors = []
 
     with create_progress() as progress:
         task_id = progress.add_task("Transcribing...", total=len(files))
@@ -259,10 +260,19 @@ def transcribe(
                     audio_path.unlink(missing_ok=True)
 
             except Exception as e:
-                print_error(f"Failed to transcribe {file.name}: {e}")
+                errors.append((file.name, str(e)))
                 continue
 
             progress.advance(task_id)
+
+    # Show any errors that occurred
+    for filename, error in errors:
+        print_error(f"Failed to transcribe {filename}: {error}")
+
+    if not all_results:
+        if errors:
+            print_error("All transcriptions failed. See errors above.")
+        raise typer.Exit(1)
 
     # Save results
     if batch_mode == "concatenate" and len(all_results) > 1:

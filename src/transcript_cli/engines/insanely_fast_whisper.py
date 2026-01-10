@@ -94,6 +94,18 @@ class InsanelyFastWhisperEngine(TranscriptionEngine):
             pass
 
         # Create pipeline
+        from huggingface_hub import hf_hub_download, HfFileSystem
+        import sys
+        
+        # Check if model is already cached
+        fs = HfFileSystem()
+        try:
+            # Quick check - if this fails, model needs download
+            from transformers.utils import cached_file
+            cached_file(model_name, "config.json", _raise_exceptions_for_missing_entries=False)
+        except Exception:
+            print(f"\n📥 Downloading model {model_name}... (first time only)", file=sys.stderr)
+        
         pipe = pipeline(
             "automatic-speech-recognition",
             model=model_name,
