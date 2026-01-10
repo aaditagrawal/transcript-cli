@@ -55,6 +55,16 @@ fi
 
 echo -e "${GREEN}✓${NC} PyTorch variant: $PYTORCH_CUDA"
 
+# Check for Blackwell GPUs (RTX 50 series) - need nightly PyTorch
+GPU_NAME=$(nvidia-smi --query-gpu=name --format=csv,noheader | head -1)
+if [[ "$GPU_NAME" == *"5070"* ]] || [[ "$GPU_NAME" == *"5080"* ]] || [[ "$GPU_NAME" == *"5090"* ]]; then
+    echo -e "${YELLOW}⚠️${NC} Detected Blackwell GPU ($GPU_NAME)"
+    echo "   Blackwell requires PyTorch nightly for CUDA sm_120 support"
+    PYTORCH_NIGHTLY=true
+else
+    PYTORCH_NIGHTLY=false
+fi
+
 # Check FFmpeg
 if ! command -v ffmpeg &> /dev/null; then
     echo -e "${YELLOW}⚠️${NC} FFmpeg not found. Please install: sudo apt install ffmpeg"
@@ -76,8 +86,13 @@ cd "$INSTALL_DIR"
 uv venv --python 3.11 2>/dev/null || uv venv
 source .venv/bin/activate
 
-echo "📦 Installing PyTorch ($PYTORCH_CUDA)..."
-uv pip install torch torchaudio --index-url "https://download.pytorch.org/whl/$PYTORCH_CUDA"
+if [ "$PYTORCH_NIGHTLY" = true ]; then
+    echo "📦 Installing PyTorch nightly (Blackwell support)..."
+    uv pip install --pre torch torchaudio --index-url https://download.pytorch.org/whl/nightly/cu126
+else
+    echo "📦 Installing PyTorch ($PYTORCH_CUDA)..."
+    uv pip install torch torchaudio --index-url "https://download.pytorch.org/whl/$PYTORCH_CUDA"
+fi
 
 echo "📦 Installing transcript-cli..."
 uv pip install git+https://github.com/aaditagrawal/transcript-cli.git
