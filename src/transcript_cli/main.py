@@ -88,12 +88,15 @@ def main_callback(
         
         print_banner()
         
+        # Get the engine to use (for showing model download status)
+        engine_instance = get_best_engine()
+        
         # Interactive prompts if not specified
         if output_format is None:
             output_format = prompt_output_format(OUTPUT_FORMATS)
         
         if model is None:
-            model = prompt_model_choice(WHISPER_MODELS, default="base")
+            model = prompt_model_choice(WHISPER_MODELS, default="base", engine=engine_instance)
         
         ctx.invoke(
             transcribe,
@@ -187,7 +190,7 @@ def transcribe(
         print_info("Install an engine with: uv pip install transcript-cli[faster]")
         raise typer.Exit(1)
 
-    # Interactive mode: prompt for missing options
+    # Interactive mode: prompt for missing engine
     if interactive or engine is None:
         if len(available) > 1:
             engine = prompt_engine_choice(list(available.keys()))
@@ -195,8 +198,19 @@ def transcribe(
             engine = list(available.keys())[0]
             print_info(f"Using engine: {engine}")
 
+    # Get engine instance early so we can show model download status
+    try:
+        engine_instance = get_engine(engine) if engine else get_best_engine()
+        if engine_instance is None:
+            print_error("No engine available")
+            raise typer.Exit(1)
+    except ValueError as e:
+        print_error(str(e))
+        raise typer.Exit(1)
+
+    # Prompt for model with download status
     if interactive or model is None:
-        model = prompt_model_choice(WHISPER_MODELS, default="base")
+        model = prompt_model_choice(WHISPER_MODELS, default="base", engine=engine_instance)
 
     if interactive and output_format == "text":
         output_format = prompt_output_format(OUTPUT_FORMATS)
@@ -207,16 +221,6 @@ def transcribe(
     # Validate format
     if output_format not in OUTPUT_FORMATS:
         print_error(f"Unknown format: {output_format}. Available: {OUTPUT_FORMATS}")
-        raise typer.Exit(1)
-
-    # Get engine instance
-    try:
-        engine_instance = get_engine(engine) if engine else get_best_engine()
-        if engine_instance is None:
-            print_error("No engine available")
-            raise typer.Exit(1)
-    except ValueError as e:
-        print_error(str(e))
         raise typer.Exit(1)
 
     # Prepare options
@@ -452,6 +456,75 @@ def list_formats():
         table.add_row(fmt, ext, desc)
 
     console.print(table)
+
+
+@app.command("list-models")
+def list_models():
+    """List available Whisper models and their download status."""
+    print_banner()
+
+    config = AppConfig.create()
+    print_platform_info(config.platform)
+    console.print()
+
+    from rich.table import Table
+
+    # Get the best available engine to check download status
+    engine = get_best_engine()
+    
+    # Model size estimates (approximate, varies by engine)
+    model_sizes = {
+        "tiny": "~75 MB",
+        "base": "~145 MB",
+        "small": "~465 MB",
+        "medium": "~1.5 GB",
+        "large": "~3 GB",
+        "large-v2": "~3 GB",
+        "large-v3": "~3 GB",
+        "turbo": "~1.5 GB",
+    }
+
+    table = Table(title="Whisper Models", show_header=True)
+    table.add_column("Model", style="cyan")
+    table.add_column("Status", justify="center")
+    table.add_column("Size", justify="right")
+    table.add_column("Description")
+
+    model_descriptions = {
+        "tiny": "Fastest, lowest accuracy",
+        "base": "Fast, good for quick transcription",
+        "small": "Balanced speed and accuracy",
+        "medium": "High accuracy, slower",
+        "large": "Highest accuracy (alias for large-v3)",
+        "large-v2": "High accuracy, legacy model",
+        "large-v3": "Best accuracy, multilingual",
+        "turbo": "Fast + accurate, recommended",
+    }
+
+    for model in WHISPER_MODELS:
+        if engine and engine.is_model_downloaded(model):
+            status = "[green]✓ Downloaded[/green]"
+        else:
+            status = "[dim]Not cached[/dim]"
+
+        size = model_sizes.get(model, "~1+ GB")
+        desc = model_descriptions.get(model, "")
+        table.add_row(model, status, size, desc)
+
+    console.print(table)
+
+    # Show engine-specific info
+    if engine:
+        console.print()
+        print_info(f"Status shown for engine: {engine.name}")
+        downloaded = engine.list_downloaded_models()
+        if downloaded:
+            console.print(f"  [dim]Downloaded: {', '.join(downloaded)}[/dim]")
+    
+    console.print()
+    print_info("To download a model:")
+    console.print("  [dim]transcript download <engine> --model <model>[/dim]")
+    console.print("  [dim]Example: transcript download faster-whisper --model large-v3[/dim]")
 
 
 if __name__ == "__main__":

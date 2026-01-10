@@ -167,3 +167,39 @@ class FasterWhisperEngine(TranscriptionEngine):
 
         if progress_callback:
             progress_callback(1.0, "Complete")
+
+    def get_model_path(self, model: str) -> Path | None:
+        """Get the cached model path if downloaded."""
+        try:
+            from huggingface_hub import try_to_load_from_cache
+
+            # faster-whisper uses Systran models on HuggingFace
+            if model in ["turbo", "large-v3-turbo"]:
+                model_id = "Systran/faster-whisper-large-v3-turbo"
+            elif model.startswith("distil-"):
+                model_id = f"Systran/faster-{model}"
+            else:
+                model_id = f"Systran/faster-whisper-{model}"
+
+            cache_result = try_to_load_from_cache(model_id, "config.json")
+            if isinstance(cache_result, str):
+                return Path(cache_result).parent
+            return None
+        except Exception:
+            return None
+
+    def list_downloaded_models(self) -> list[str]:
+        """List locally cached models."""
+        downloaded = []
+        model_names = [
+            "tiny", "tiny.en", "base", "base.en", "small", "small.en",
+            "medium", "medium.en", "large-v1", "large-v2", "large-v3", "turbo"
+        ]
+        for model in model_names:
+            if self.get_model_path(model) is not None:
+                downloaded.append(model)
+        return downloaded
+
+    def is_model_downloaded(self, model: str) -> bool:
+        """Check if a specific model is downloaded."""
+        return self.get_model_path(model) is not None

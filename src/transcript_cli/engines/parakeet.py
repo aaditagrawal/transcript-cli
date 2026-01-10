@@ -148,3 +148,31 @@ class ParakeetEngine(TranscriptionEngine):
 
         if progress_callback:
             progress_callback(1.0, "Complete")
+
+    def get_model_path(self, model: str) -> Path | None:
+        """Get the cached model path if downloaded."""
+        try:
+            from huggingface_hub import try_to_load_from_cache
+
+            # Parakeet uses nvidia namespace
+            if "/" not in model:
+                model = f"nvidia/{model}"
+
+            cache_result = try_to_load_from_cache(model, "model_config.yaml")
+            if isinstance(cache_result, str):
+                return Path(cache_result).parent
+            return None
+        except Exception:
+            return None
+
+    def list_downloaded_models(self) -> list[str]:
+        """List locally cached models."""
+        downloaded = []
+        for model in self.supported_models:
+            if self.get_model_path(model) is not None:
+                downloaded.append(model)
+        return downloaded
+
+    def is_model_downloaded(self, model: str) -> bool:
+        """Check if a specific model is downloaded."""
+        return self.get_model_path(model) is not None

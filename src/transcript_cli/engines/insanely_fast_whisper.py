@@ -190,3 +190,36 @@ class InsanelyFastWhisperEngine(TranscriptionEngine):
 
         if progress_callback:
             progress_callback(1.0, "Complete")
+
+    def get_model_path(self, model: str) -> Path | None:
+        """Get the cached model path if downloaded."""
+        try:
+            from huggingface_hub import try_to_load_from_cache
+            from huggingface_hub.constants import HUGGINGFACE_HUB_CACHE
+
+            model_name = self._normalize_model_name(model)
+            # Check if config.json is cached (indicates model is downloaded)
+            cache_result = try_to_load_from_cache(model_name, "config.json")
+            if cache_result is not None and not isinstance(cache_result, str) is False:
+                if isinstance(cache_result, str):
+                    return Path(cache_result).parent
+            return None
+        except Exception:
+            return None
+
+    def list_downloaded_models(self) -> list[str]:
+        """List locally cached models."""
+        downloaded = []
+        # Check the common model names
+        model_names = [
+            "tiny", "base", "small", "medium", 
+            "large", "large-v2", "large-v3", "turbo"
+        ]
+        for model in model_names:
+            if self.get_model_path(model) is not None:
+                downloaded.append(model)
+        return downloaded
+
+    def is_model_downloaded(self, model: str) -> bool:
+        """Check if a specific model is downloaded."""
+        return self.get_model_path(model) is not None

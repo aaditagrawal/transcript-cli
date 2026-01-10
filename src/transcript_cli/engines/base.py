@@ -123,3 +123,7 @@ class TranscriptionEngine(ABC):
     def list_downloaded_models(self) -> list[str]:
         """List locally cached models."""
         return []
+
+    def is_model_downloaded(self, model: str) -> bool:
+        """Check if a specific model is downloaded."""
+        return False

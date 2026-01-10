@@ -104,8 +104,22 @@ def prompt_engine_choice(available_engines: list[str]) -> str:
     return available_engines[int(choice) - 1]
 
 
-def prompt_model_choice(models: list[str], default: str = "base") -> str:
-    """Prompt user to select a model size."""
+def prompt_model_choice(
+    models: list[str],
+    default: str = "base",
+    engine=None,
+) -> str:
+    """Prompt user to select a model size, showing download status if engine provided."""
+    if engine is not None:
+        # Show which models are downloaded
+        console.print("\n[bold]Available models:[/bold]")
+        for model in models:
+            if engine.is_model_downloaded(model):
+                console.print(f"  [green]✓[/green] {model} [dim](cached)[/dim]")
+            else:
+                console.print(f"  [dim]○[/dim] {model}")
+        console.print()
+    
     return Prompt.ask(
         "Select model size",
         choices=models,

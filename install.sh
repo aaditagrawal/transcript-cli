@@ -94,11 +94,11 @@ else
     uv pip install torch torchaudio --index-url "https://download.pytorch.org/whl/$PYTORCH_CUDA"
 fi
 
-echo "📦 Installing transcript-cli..."
+echo "📦 Installing transcript-cli with insanely-fast-whisper engine..."
 uv pip install git+https://github.com/aaditagrawal/transcript-cli.git
-uv pip install transformers accelerate
+uv pip install insanely-fast-whisper transformers accelerate
 
-echo "📦 Installing Flash Attention 2..."
+echo "📦 Installing Flash Attention 2 (optional, for better performance)..."
 uv pip install flash-attn --no-build-isolation 2>/dev/null || echo -e "${YELLOW}⚠️${NC} Flash Attention skipped (optional)"
 
 # Create wrapper
