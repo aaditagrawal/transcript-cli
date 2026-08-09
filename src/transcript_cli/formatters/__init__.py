@@ -1,11 +1,11 @@
 """Output formatters for transcription results."""
 
 from .base import OutputFormatter
+from .json_output import JSONFormatter
+from .srt import SRTFormatter
 from .text import TextFormatter
 from .timestamps import TimestampFormatter
-from .srt import SRTFormatter
 from .vtt import VTTFormatter
-from .json_output import JSONFormatter
 
 # Available output formats
 FORMATTERS: dict[str, type[OutputFormatter]] = {

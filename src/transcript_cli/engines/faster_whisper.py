@@ -1,17 +1,16 @@
 """Faster Whisper engine using CTranslate2."""
 
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable
 
+from . import register_engine
 from .base import (
     Segment,
-    Task,
     TranscribeOptions,
     TranscriptionEngine,
     TranscriptionResult,
     WordTimestamp,
 )
-from . import register_engine
 
 
 @register_engine
@@ -192,8 +191,18 @@ class FasterWhisperEngine(TranscriptionEngine):
         """List locally cached models."""
         downloaded = []
         model_names = [
-            "tiny", "tiny.en", "base", "base.en", "small", "small.en",
-            "medium", "medium.en", "large-v1", "large-v2", "large-v3", "turbo"
+            "tiny",
+            "tiny.en",
+            "base",
+            "base.en",
+            "small",
+            "small.en",
+            "medium",
+            "medium.en",
+            "large-v1",
+            "large-v2",
+            "large-v3",
+            "turbo",
         ]
         for model in model_names:
             if self.get_model_path(model) is not None:

@@ -2,15 +2,20 @@
 
 import time
 from pathlib import Path
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
-from rich.prompt import Confirm
 
 from . import __version__
-from .audio import discover_files, get_audio_duration, is_video_file, prepare_audio
-from .config import AppConfig, Platform, WHISPER_MODELS
-from .engines import _load_engines, get_all_engines, get_available_engines, get_best_engine, get_engine
+from .audio import discover_files, get_audio_duration, prepare_audio
+from .config import WHISPER_MODELS, AppConfig
+from .engines import (
+    _load_engines,
+    get_all_engines,
+    get_available_engines,
+    get_best_engine,
+    get_engine,
+)
 from .engines.base import Task, TranscribeOptions
 from .formatters import OUTPUT_FORMATS, get_formatter
 from .ui import (
@@ -23,7 +28,6 @@ from .ui import (
     print_platform_info,
     print_success,
     print_transcription_summary,
-    print_warning,
     prompt_batch_mode,
     prompt_engine_choice,
     prompt_model_choice,
@@ -47,7 +51,7 @@ _load_engines()
 def main_callback(
     ctx: typer.Context,
     path: Annotated[
-        Optional[Path],
+        Path | None,
         typer.Argument(
             help="Path to audio/video file (runs transcription directly)",
         ),
@@ -57,11 +61,11 @@ def main_callback(
         typer.Option("--version", "-v", help="Show version and exit"),
     ] = False,
     output_format: Annotated[
-        Optional[str],
+        str | None,
         typer.Option("--format", "-f", help="Output format (text/srt/vtt/json)"),
     ] = None,
     model: Annotated[
-        Optional[str],
+        str | None,
         typer.Option("--model", "-m", help="Model size (base/small/medium/large-v3/turbo)"),
     ] = None,
     recursive: Annotated[
@@ -70,7 +74,7 @@ def main_callback(
     ] = False,
 ):
     """Transcript CLI - Transcribe audio/video files.
-    
+
     Usage: transcript video.mp4
            transcript video.mp4 -f srt
            transcript folder/ -r
@@ -78,26 +82,26 @@ def main_callback(
     if version:
         console.print(f"transcript-cli v{__version__}")
         raise typer.Exit()
-    
+
     # If path provided and no subcommand, run transcribe
     if path is not None and ctx.invoked_subcommand is None:
         # Check if path exists
         if not path.exists():
             print_error(f"File not found: {path}")
             raise typer.Exit(1)
-        
+
         print_banner()
-        
+
         # Get the engine to use (for showing model download status)
         engine_instance = get_best_engine()
-        
+
         # Interactive prompts if not specified
         if output_format is None:
             output_format = prompt_output_format(OUTPUT_FORMATS)
-        
+
         if model is None:
             model = prompt_model_choice(WHISPER_MODELS, default="base", engine=engine_instance)
-        
+
         ctx.invoke(
             transcribe,
             path=path,
@@ -118,26 +122,27 @@ def transcribe(
         ),
     ],
     engine: Annotated[
-        Optional[str],
+        str | None,
         typer.Option("--engine", "-e", help="Transcription engine to use"),
     ] = None,
     model: Annotated[
-        Optional[str],
+        str | None,
         typer.Option("--model", "-m", help="Model name or size"),
     ] = None,
     output_format: Annotated[
         str,
         typer.Option(
-            "--format", "-f",
+            "--format",
+            "-f",
             help="Output format",
         ),
     ] = "text",
     output: Annotated[
-        Optional[Path],
+        Path | None,
         typer.Option("--output", "-o", help="Output file or directory"),
     ] = None,
     language: Annotated[
-        Optional[str],
+        str | None,
         typer.Option("--language", "-l", help="Force language (default: auto-detect)"),
     ] = None,
     task: Annotated[
@@ -145,7 +150,7 @@ def transcribe(
         typer.Option("--task", "-t", help="Task: transcribe or translate"),
     ] = "transcribe",
     batch_mode: Annotated[
-        Optional[str],
+        str | None,
         typer.Option("--batch", "-b", help="Batch mode: individual or concatenate"),
     ] = None,
     word_timestamps: Annotated[
@@ -291,7 +296,7 @@ def transcribe(
     # Save results
     if batch_mode == "concatenate" and len(all_results) > 1:
         # Combine all results
-        from .engines.base import TranscriptionResult, Segment
+        from .engines.base import Segment, TranscriptionResult
 
         combined_segments = []
         combined_text = []
@@ -427,9 +432,13 @@ def list_engines():
     console.print()
     print_info("To install an engine:")
     console.print("  [dim]uv pip install 'transcript-cli\\[faster]'[/dim]     # Faster Whisper")
-    console.print("  [dim]uv pip install 'transcript-cli\\[insanely]'[/dim]   # Insanely Fast Whisper")
+    console.print(
+        "  [dim]uv pip install 'transcript-cli\\[insanely]'[/dim]   # Insanely Fast Whisper"
+    )
     console.print("  [dim]uv pip install 'transcript-cli\\[parakeet]'[/dim]   # NVIDIA Parakeet")
-    console.print("  [dim]uv pip install 'transcript-cli\\[apple]'[/dim]      # MLX Whisper (Apple Silicon)")
+    console.print(
+        "  [dim]uv pip install 'transcript-cli\\[apple]'[/dim]      # MLX Whisper (Apple Silicon)"
+    )
 
 
 @app.command("list-formats")
@@ -471,7 +480,7 @@ def list_models():
 
     # Get the best available engine to check download status
     engine = get_best_engine()
-    
+
     # Model size estimates (approximate, varies by engine)
     model_sizes = {
         "tiny": "~75 MB",
@@ -520,7 +529,7 @@ def list_models():
         downloaded = engine.list_downloaded_models()
         if downloaded:
             console.print(f"  [dim]Downloaded: {', '.join(downloaded)}[/dim]")
-    
+
     console.print()
     print_info("To download a model:")
     console.print("  [dim]transcript download <engine> --model <model>[/dim]")

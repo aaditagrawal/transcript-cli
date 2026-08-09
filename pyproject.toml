@@ -83,13 +83,32 @@ packages = ["src/transcript_cli"]
 [tool.ruff]
 line-length = 100
 target-version = "py310"
+src = ["src"]
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "UP", "B", "SIM"]
-ignore = ["E501"]
+select = [
+    "E",  # pycodestyle errors
+    "F",  # pyflakes
+    "I",  # isort
+    "UP", # pyupgrade
+    "B",  # flake8-bugbear
+]
+ignore = [
+    "E501", # line length handled by formatter
+    "B904", # typer.Exit / CLI re-raises do not need exception chaining
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["transcript_cli"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "auto"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["src"]
 addopts = "-v --tb=short"
 
 # PyInstaller configuration hints

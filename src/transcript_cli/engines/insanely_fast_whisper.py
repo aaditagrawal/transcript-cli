@@ -1,17 +1,16 @@
 """Insanely Fast Whisper engine for maximum throughput on NVIDIA GPUs."""
 
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable
 
+from . import register_engine
 from .base import (
     Segment,
-    Task,
     TranscribeOptions,
     TranscriptionEngine,
     TranscriptionResult,
     WordTimestamp,
 )
-from . import register_engine
 
 
 @register_engine
@@ -94,18 +93,16 @@ class InsanelyFastWhisperEngine(TranscriptionEngine):
             pass
 
         # Create pipeline
-        from huggingface_hub import hf_hub_download, HfFileSystem
         import sys
-        
-        # Check if model is already cached
-        fs = HfFileSystem()
+
         try:
             # Quick check - if this fails, model needs download
             from transformers.utils import cached_file
+
             cached_file(model_name, "config.json", _raise_exceptions_for_missing_entries=False)
         except Exception:
             print(f"\n📥 Downloading model {model_name}... (first time only)", file=sys.stderr)
-        
+
         pipe = pipeline(
             "automatic-speech-recognition",
             model=model_name,
@@ -195,12 +192,11 @@ class InsanelyFastWhisperEngine(TranscriptionEngine):
         """Get the cached model path if downloaded."""
         try:
             from huggingface_hub import try_to_load_from_cache
-            from huggingface_hub.constants import HUGGINGFACE_HUB_CACHE
 
             model_name = self._normalize_model_name(model)
             # Check if config.json is cached (indicates model is downloaded)
             cache_result = try_to_load_from_cache(model_name, "config.json")
-            if cache_result is not None and not isinstance(cache_result, str) is False:
+            if cache_result is not None and isinstance(cache_result, str) is not False:
                 if isinstance(cache_result, str):
                     return Path(cache_result).parent
             return None
@@ -211,10 +207,7 @@ class InsanelyFastWhisperEngine(TranscriptionEngine):
         """List locally cached models."""
         downloaded = []
         # Check the common model names
-        model_names = [
-            "tiny", "base", "small", "medium", 
-            "large", "large-v2", "large-v3", "turbo"
-        ]
+        model_names = ["tiny", "base", "small", "medium", "large", "large-v2", "large-v3", "turbo"]
         for model in model_names:
             if self.get_model_path(model) is not None:
                 downloaded.append(model)

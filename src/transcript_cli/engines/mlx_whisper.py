@@ -1,8 +1,9 @@
 """MLX Whisper engine for Apple Silicon."""
 
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable
 
+from . import register_engine
 from .base import (
     Segment,
     Task,
@@ -11,7 +12,6 @@ from .base import (
     TranscriptionResult,
     WordTimestamp,
 )
-from . import register_engine
 
 
 @register_engine
@@ -161,10 +161,7 @@ class MLXWhisperEngine(TranscriptionEngine):
     def list_downloaded_models(self) -> list[str]:
         """List locally cached models."""
         downloaded = []
-        model_names = [
-            "tiny", "base", "small", "medium",
-            "large", "large-v2", "large-v3", "turbo"
-        ]
+        model_names = ["tiny", "base", "small", "medium", "large", "large-v2", "large-v3", "turbo"]
         for model in model_names:
             if self.get_model_path(model) is not None:
                 downloaded.append(model)

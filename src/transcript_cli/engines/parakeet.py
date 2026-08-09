@@ -1,17 +1,16 @@
 """NVIDIA Parakeet TDT v3 engine using NeMo."""
 
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable
 
+from . import register_engine
 from .base import (
     Segment,
-    Task,
     TranscribeOptions,
     TranscriptionEngine,
     TranscriptionResult,
     WordTimestamp,
 )
-from . import register_engine
 
 
 @register_engine
@@ -32,8 +31,8 @@ class ParakeetEngine(TranscriptionEngine):
     def is_available(self) -> bool:
         """Check if NeMo is installed and CUDA is available."""
         try:
-            import torch
             import nemo.collections.asr as nemo_asr  # noqa: F401
+            import torch
 
             return torch.cuda.is_available()
         except ImportError:
