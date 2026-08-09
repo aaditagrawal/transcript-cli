@@ -1,10 +1,10 @@
 """Base classes for transcription engines."""
 
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Callable
 
 
 class Task(Enum):

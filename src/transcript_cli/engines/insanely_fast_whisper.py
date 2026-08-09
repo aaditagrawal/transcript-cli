@@ -1,17 +1,16 @@
 """Insanely Fast Whisper engine for maximum throughput on NVIDIA GPUs."""
 
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable
 
+from . import register_engine
 from .base import (
     Segment,
-    Task,
     TranscribeOptions,
     TranscriptionEngine,
     TranscriptionResult,
     WordTimestamp,
 )
-from . import register_engine
 
 
 @register_engine
@@ -94,8 +93,9 @@ class InsanelyFastWhisperEngine(TranscriptionEngine):
             pass
 
         # Create pipeline
-        from huggingface_hub import hf_hub_download, HfFileSystem
         import sys
+
+        from huggingface_hub import HfFileSystem
         
         # Check if model is already cached
         fs = HfFileSystem()
@@ -195,12 +195,11 @@ class InsanelyFastWhisperEngine(TranscriptionEngine):
         """Get the cached model path if downloaded."""
         try:
             from huggingface_hub import try_to_load_from_cache
-            from huggingface_hub.constants import HUGGINGFACE_HUB_CACHE
 
             model_name = self._normalize_model_name(model)
             # Check if config.json is cached (indicates model is downloaded)
             cache_result = try_to_load_from_cache(model_name, "config.json")
-            if cache_result is not None and not isinstance(cache_result, str) is False:
+            if cache_result is not None and isinstance(cache_result, str) is not False:
                 if isinstance(cache_result, str):
                     return Path(cache_result).parent
             return None

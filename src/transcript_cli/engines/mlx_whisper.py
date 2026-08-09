@@ -1,8 +1,9 @@
 """MLX Whisper engine for Apple Silicon."""
 
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable
 
+from . import register_engine
 from .base import (
     Segment,
     Task,
@@ -11,7 +12,6 @@ from .base import (
     TranscriptionResult,
     WordTimestamp,
 )
-from . import register_engine
 
 
 @register_engine

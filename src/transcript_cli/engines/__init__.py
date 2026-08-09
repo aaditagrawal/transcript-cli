@@ -1,6 +1,6 @@
 """Engine registry and base classes."""
 
-from .base import TranscriptionEngine, TranscriptionResult, TranscribeOptions
+from .base import TranscribeOptions, TranscriptionEngine, TranscriptionResult
 
 # Engine registry - populated on import
 _engines: dict[str, type[TranscriptionEngine]] = {}

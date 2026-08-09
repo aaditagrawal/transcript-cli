@@ -1,17 +1,16 @@
 """Faster Whisper engine using CTranslate2."""
 
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable
 
+from . import register_engine
 from .base import (
     Segment,
-    Task,
     TranscribeOptions,
     TranscriptionEngine,
     TranscriptionResult,
     WordTimestamp,
 )
-from . import register_engine
 
 
 @register_engine
