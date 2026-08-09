@@ -41,11 +41,7 @@ def discover_files(path: Path, recursive: bool = False) -> list[Path]:
 
     if path.is_dir():
         pattern = "**/*" if recursive else "*"
-        files = [
-            f
-            for f in path.glob(pattern)
-            if f.is_file() and is_supported_file(f)
-        ]
+        files = [f for f in path.glob(pattern) if f.is_file() and is_supported_file(f)]
         return sorted(files)
 
     return []

@@ -191,8 +191,18 @@ class FasterWhisperEngine(TranscriptionEngine):
         """List locally cached models."""
         downloaded = []
         model_names = [
-            "tiny", "tiny.en", "base", "base.en", "small", "small.en",
-            "medium", "medium.en", "large-v1", "large-v2", "large-v3", "turbo"
+            "tiny",
+            "tiny.en",
+            "base",
+            "base.en",
+            "small",
+            "small.en",
+            "medium",
+            "medium.en",
+            "large-v1",
+            "large-v2",
+            "large-v3",
+            "turbo",
         ]
         for model in model_names:
             if self.get_model_path(model) is not None:

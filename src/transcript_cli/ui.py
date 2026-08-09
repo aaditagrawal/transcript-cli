@@ -119,7 +119,7 @@ def prompt_model_choice(
             else:
                 console.print(f"  [dim]○[/dim] {model}")
         console.print()
-    
+
     return Prompt.ask(
         "Select model size",
         choices=models,

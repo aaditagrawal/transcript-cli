@@ -74,7 +74,7 @@ def main_callback(
     ] = False,
 ):
     """Transcript CLI - Transcribe audio/video files.
-    
+
     Usage: transcript video.mp4
            transcript video.mp4 -f srt
            transcript folder/ -r
@@ -82,26 +82,26 @@ def main_callback(
     if version:
         console.print(f"transcript-cli v{__version__}")
         raise typer.Exit()
-    
+
     # If path provided and no subcommand, run transcribe
     if path is not None and ctx.invoked_subcommand is None:
         # Check if path exists
         if not path.exists():
             print_error(f"File not found: {path}")
             raise typer.Exit(1)
-        
+
         print_banner()
-        
+
         # Get the engine to use (for showing model download status)
         engine_instance = get_best_engine()
-        
+
         # Interactive prompts if not specified
         if output_format is None:
             output_format = prompt_output_format(OUTPUT_FORMATS)
-        
+
         if model is None:
             model = prompt_model_choice(WHISPER_MODELS, default="base", engine=engine_instance)
-        
+
         ctx.invoke(
             transcribe,
             path=path,
@@ -132,7 +132,8 @@ def transcribe(
     output_format: Annotated[
         str,
         typer.Option(
-            "--format", "-f",
+            "--format",
+            "-f",
             help="Output format",
         ),
     ] = "text",
@@ -431,9 +432,13 @@ def list_engines():
     console.print()
     print_info("To install an engine:")
     console.print("  [dim]uv pip install 'transcript-cli\\[faster]'[/dim]     # Faster Whisper")
-    console.print("  [dim]uv pip install 'transcript-cli\\[insanely]'[/dim]   # Insanely Fast Whisper")
+    console.print(
+        "  [dim]uv pip install 'transcript-cli\\[insanely]'[/dim]   # Insanely Fast Whisper"
+    )
     console.print("  [dim]uv pip install 'transcript-cli\\[parakeet]'[/dim]   # NVIDIA Parakeet")
-    console.print("  [dim]uv pip install 'transcript-cli\\[apple]'[/dim]      # MLX Whisper (Apple Silicon)")
+    console.print(
+        "  [dim]uv pip install 'transcript-cli\\[apple]'[/dim]      # MLX Whisper (Apple Silicon)"
+    )
 
 
 @app.command("list-formats")
@@ -475,7 +480,7 @@ def list_models():
 
     # Get the best available engine to check download status
     engine = get_best_engine()
-    
+
     # Model size estimates (approximate, varies by engine)
     model_sizes = {
         "tiny": "~75 MB",
@@ -524,7 +529,7 @@ def list_models():
         downloaded = engine.list_downloaded_models()
         if downloaded:
             console.print(f"  [dim]Downloaded: {', '.join(downloaded)}[/dim]")
-    
+
     console.print()
     print_info("To download a model:")
     console.print("  [dim]transcript download <engine> --model <model>[/dim]")

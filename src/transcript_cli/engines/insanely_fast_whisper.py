@@ -95,17 +95,14 @@ class InsanelyFastWhisperEngine(TranscriptionEngine):
         # Create pipeline
         import sys
 
-        from huggingface_hub import HfFileSystem
-        
-        # Check if model is already cached
-        fs = HfFileSystem()
         try:
             # Quick check - if this fails, model needs download
             from transformers.utils import cached_file
+
             cached_file(model_name, "config.json", _raise_exceptions_for_missing_entries=False)
         except Exception:
             print(f"\n📥 Downloading model {model_name}... (first time only)", file=sys.stderr)
-        
+
         pipe = pipeline(
             "automatic-speech-recognition",
             model=model_name,
@@ -210,10 +207,7 @@ class InsanelyFastWhisperEngine(TranscriptionEngine):
         """List locally cached models."""
         downloaded = []
         # Check the common model names
-        model_names = [
-            "tiny", "base", "small", "medium", 
-            "large", "large-v2", "large-v3", "turbo"
-        ]
+        model_names = ["tiny", "base", "small", "medium", "large", "large-v2", "large-v3", "turbo"]
         for model in model_names:
             if self.get_model_path(model) is not None:
                 downloaded.append(model)
