@@ -6,6 +6,7 @@ from transcript_cli.audio import discover_files
 
 
 def test_discovery_filters_before_checking_file_metadata(tmp_path, monkeypatch):
+    """Only supported suffixes reach metadata checks in both traversal modes."""
     for name in ("z.WAV", "a.mp4", "notes.txt", "cover.png"):
         (tmp_path / name).touch()
     (tmp_path / "directory.mp3").mkdir()
@@ -17,6 +18,7 @@ def test_discovery_filters_before_checking_file_metadata(tmp_path, monkeypatch):
     original = Path.is_file
 
     def record_is_file(path):
+        """Track metadata checks while retaining real filesystem behavior."""
         checked.append(path)
         return original(path)
 
@@ -35,6 +37,7 @@ def test_discovery_filters_before_checking_file_metadata(tmp_path, monkeypatch):
 
 
 def test_discovery_handles_direct_paths_and_symlinks(tmp_path):
+    """Direct paths and symlinks retain their existing discovery behavior."""
     media = tmp_path / "audio.wav"
     media.touch()
     link = tmp_path / "linked.WAV"
