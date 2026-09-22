@@ -9,20 +9,23 @@ on:
 jobs:
   quality:
     runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        python-version: ["3.12", "3.14.7"]
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7.0.1
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@v10.2.0
         with:
           enable-cache: true
 
       - name: Set up Python
-        run: uv python install 3.12
+        run: uv python install ${{ matrix.python-version }}
 
       - name: Sync dependencies
-        run: uv sync --extra dev
+        run: uv sync --frozen --extra dev --python ${{ matrix.python-version }}
 
       - name: Ruff check
         run: uv run ruff check .
