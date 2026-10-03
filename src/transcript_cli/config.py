@@ -66,16 +66,6 @@ def _has_nvidia_gpu() -> bool:
         return False
 
 
-def _has_cuda() -> bool:
-    """Check if CUDA is available via PyTorch."""
-    try:
-        import torch
-
-        return torch.cuda.is_available()
-    except ImportError:
-        return False
-
-
 # Audio/video file extensions
 AUDIO_EXTENSIONS = {".mp3", ".wav", ".flac", ".m4a", ".ogg", ".opus", ".wma", ".aac"}
 VIDEO_EXTENSIONS = {".mp4", ".mkv", ".mov", ".avi", ".webm", ".wmv", ".flv", ".m4v"}

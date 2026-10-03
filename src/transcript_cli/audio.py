@@ -58,24 +58,30 @@ def extract_audio(video_path: Path, output_path: Path | None = None) -> Path:
     Returns:
         Path to extracted audio file
     """
+    owns_output = output_path is None
     if output_path is None:
         # Create temp file that will persist
         temp = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
         output_path = Path(temp.name)
         temp.close()
 
-    # Extract audio using ffmpeg
-    (
-        ffmpeg.input(str(video_path))
-        .output(
-            str(output_path),
-            acodec="pcm_s16le",  # 16-bit PCM
-            ar=16000,  # 16kHz sample rate (optimal for Whisper)
-            ac=1,  # Mono
+    try:
+        # Extract audio using ffmpeg
+        (
+            ffmpeg.input(str(video_path))
+            .output(
+                str(output_path),
+                acodec="pcm_s16le",  # 16-bit PCM
+                ar=16000,  # 16kHz sample rate (optimal for Whisper)
+                ac=1,  # Mono
+            )
+            .overwrite_output()
+            .run(quiet=True)
         )
-        .overwrite_output()
-        .run(quiet=True)
-    )
+    except Exception:
+        if owns_output:
+            output_path.unlink(missing_ok=True)
+        raise
 
     return output_path
 

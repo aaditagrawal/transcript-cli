@@ -14,6 +14,7 @@ def register_engine(engine_class: type[TranscriptionEngine]) -> type[Transcripti
 
 def get_engine(name: str) -> TranscriptionEngine:
     """Get an engine instance by name."""
+    _load_engines()
     if name not in _engines:
         raise ValueError(f"Unknown engine: {name}. Available: {list(_engines.keys())}")
     return _engines[name]()
@@ -21,11 +22,13 @@ def get_engine(name: str) -> TranscriptionEngine:
 
 def get_available_engines() -> dict[str, TranscriptionEngine]:
     """Get all available (installed) engines."""
+    _load_engines()
     return {name: cls() for name, cls in _engines.items() if cls().is_available()}
 
 
 def get_all_engines() -> dict[str, TranscriptionEngine]:
     """Get all registered engines."""
+    _load_engines()
     return {name: cls() for name, cls in _engines.items()}
 
 

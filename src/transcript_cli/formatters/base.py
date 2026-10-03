@@ -33,6 +33,7 @@ class OutputFormatter(ABC):
             result: TranscriptionResult to format
             output_path: Path to save to
         """
+        output_path.parent.mkdir(parents=True, exist_ok=True)
         content = self.format(result)
         output_path.write_text(content, encoding="utf-8")
 
