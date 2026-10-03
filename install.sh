@@ -19,7 +19,6 @@ fi
 echo -e "${GREEN}✓${NC} GPU: $(nvidia-smi --query-gpu=name --format=csv,noheader)"
 
 # Detect CUDA version
-CUDA_VERSION=$(nvidia-smi --query-gpu=driver_version --format=csv,noheader | head -1)
 NVCC_VERSION=$(nvcc --version 2>/dev/null | grep "release" | sed 's/.*release //' | sed 's/,.*//' || echo "")
 
 if [ -n "$NVCC_VERSION" ]; then

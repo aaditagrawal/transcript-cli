@@ -1,16 +1,17 @@
 """Main CLI application for transcript-cli."""
 
 import time
+from dataclasses import replace
 from pathlib import Path
 from typing import Annotated
 
 import typer
+from typer.core import TyperGroup
 
 from . import __version__
 from .audio import discover_files, get_audio_duration, prepare_audio
 from .config import WHISPER_MODELS, AppConfig
 from .engines import (
-    _load_engines,
     get_all_engines,
     get_available_engines,
     get_best_engine,
@@ -34,8 +35,33 @@ from .ui import (
     prompt_output_format,
 )
 
+
+class ShortcutGroup(TyperGroup):
+    """Route a leading media path to transcribe without consuming command names."""
+
+    def parse_args(self, ctx, args):
+        if args and not args[0].startswith("-") and args[0] not in self.commands:
+            args = ["transcribe", *args]
+        return super().parse_args(ctx, args)
+
+
+ENGINE_EXTRAS = {
+    "faster-whisper": "faster",
+    "insanely-fast-whisper": "insanely",
+    "mlx-whisper": "apple",
+    "parakeet": "parakeet",
+}
+
+
+def choose_model(engine):
+    models = engine.supported_models
+    default = "base" if "base" in models else models[0]
+    return prompt_model_choice(models, default=default, engine=engine)
+
+
 # Initialize Typer app
 app = typer.Typer(
+    cls=ShortcutGroup,
     name="transcript",
     help="🎙️ Multi-engine audio/video transcription CLI",
     no_args_is_help=True,
@@ -43,72 +69,18 @@ app = typer.Typer(
     invoke_without_command=True,
 )
 
-# Load engines on startup
-_load_engines()
-
 
 @app.callback(invoke_without_command=True)
 def main_callback(
-    ctx: typer.Context,
-    path: Annotated[
-        Path | None,
-        typer.Argument(
-            help="Path to audio/video file (runs transcription directly)",
-        ),
-    ] = None,
     version: Annotated[
         bool,
         typer.Option("--version", "-v", help="Show version and exit"),
     ] = False,
-    output_format: Annotated[
-        str | None,
-        typer.Option("--format", "-f", help="Output format (text/srt/vtt/json)"),
-    ] = None,
-    model: Annotated[
-        str | None,
-        typer.Option("--model", "-m", help="Model size (base/small/medium/large-v3/turbo)"),
-    ] = None,
-    recursive: Annotated[
-        bool,
-        typer.Option("--recursive", "-r", help="Recursively search directories"),
-    ] = False,
 ):
-    """Transcript CLI - Transcribe audio/video files.
-
-    Usage: transcript video.mp4
-           transcript video.mp4 -f srt
-           transcript folder/ -r
-    """
+    """Transcribe media with `transcript FILE [options]` or a named command."""
     if version:
         console.print(f"transcript-cli v{__version__}")
         raise typer.Exit()
-
-    # If path provided and no subcommand, run transcribe
-    if path is not None and ctx.invoked_subcommand is None:
-        # Check if path exists
-        if not path.exists():
-            print_error(f"File not found: {path}")
-            raise typer.Exit(1)
-
-        print_banner()
-
-        # Get the engine to use (for showing model download status)
-        engine_instance = get_best_engine()
-
-        # Interactive prompts if not specified
-        if output_format is None:
-            output_format = prompt_output_format(OUTPUT_FORMATS)
-
-        if model is None:
-            model = prompt_model_choice(WHISPER_MODELS, default="base", engine=engine_instance)
-
-        ctx.invoke(
-            transcribe,
-            path=path,
-            output_format=output_format,
-            model=model,
-            recursive=recursive,
-        )
 
 
 @app.command()
@@ -215,7 +187,7 @@ def transcribe(
 
     # Prompt for model with download status
     if interactive or model is None:
-        model = prompt_model_choice(WHISPER_MODELS, default="base", engine=engine_instance)
+        model = choose_model(engine_instance)
 
     if interactive and output_format == "text":
         output_format = prompt_output_format(OUTPUT_FORMATS)
@@ -238,12 +210,32 @@ def transcribe(
     # Get formatter
     formatter = get_formatter(output_format)
 
-    # Determine output path
-    if output is None:
-        if len(files) == 1:
-            output = formatter.get_output_path(files[0])
-        else:
+    # Plan every destination before inference so collisions cannot overwrite a batch.
+    output_paths = {}
+    if batch_mode == "concatenate":
+        if output is None:
             output = path if path.is_dir() else path.parent
+    elif len(files) > 1:
+        destination = output or (path if path.is_dir() else path.parent)
+        if (destination.exists() and not destination.is_dir()) or (
+            not destination.exists()
+            and destination.suffix in {".txt", ".srt", ".vtt", ".json", ".md"}
+        ):
+            print_error("Multiple inputs require an output directory, not a shared file")
+            raise typer.Exit(1)
+        root = path if path.is_dir() else path.parent
+        for file in files:
+            relative = file.relative_to(root).with_suffix(formatter.extension)
+            output_paths[file] = destination / relative
+        if len(set(output_paths.values())) != len(files):
+            print_error("Inputs have colliding transcript names; rename same-stem media files")
+            raise typer.Exit(1)
+        output = destination
+    else:
+        output = output or formatter.get_output_path(files[0])
+        output_paths[files[0]] = (
+            formatter.get_output_path(files[0], output) if output.is_dir() else output
+        )
 
     # Process files
     start_time = time.time()
@@ -257,6 +249,8 @@ def transcribe(
         for file in files:
             progress.update(task_id, description=f"Processing: {file.name}")
 
+            audio_path = None
+            is_temp = False
             try:
                 # Prepare audio (extract from video if needed)
                 audio_path, is_temp = prepare_audio(file)
@@ -272,17 +266,15 @@ def transcribe(
                     options=options,
                 )
 
+                result.duration = duration or result.duration
                 all_results.append((file, result))
-
-                # Clean up temp file
-                if is_temp:
-                    audio_path.unlink(missing_ok=True)
 
             except Exception as e:
                 errors.append((file.name, str(e)))
-                continue
-
-            progress.advance(task_id)
+            finally:
+                if is_temp and audio_path is not None:
+                    audio_path.unlink(missing_ok=True)
+                progress.advance(task_id)
 
     # Show any errors that occurred
     for filename, error in errors:
@@ -294,7 +286,7 @@ def transcribe(
         raise typer.Exit(1)
 
     # Save results
-    if batch_mode == "concatenate" and len(all_results) > 1:
+    if batch_mode == "concatenate":
         # Combine all results
         from .engines.base import Segment, TranscriptionResult
 
@@ -314,7 +306,10 @@ def transcribe(
                         text=seg.text,
                         start=seg.start + offset,
                         end=seg.end + offset,
-                        words=seg.words,
+                        words=[
+                            replace(word, start=word.start + offset, end=word.end + offset)
+                            for word in seg.words
+                        ],
                     )
                 )
 
@@ -333,10 +328,7 @@ def transcribe(
     else:
         # Individual files
         for file, result in all_results:
-            if output.is_dir():
-                output_path = formatter.get_output_path(file, output)
-            else:
-                output_path = output
+            output_path = output_paths[file]
 
             formatter.save(result, output_path)
             print_success(f"Saved: {output_path}")
@@ -358,9 +350,9 @@ def download(
         typer.Argument(help="Engine to download model for"),
     ],
     model: Annotated[
-        str,
+        str | None,
         typer.Option("--model", "-m", help="Model name or size"),
-    ] = "base",
+    ] = None,
 ):
     """
     Download a model for an engine.
@@ -379,8 +371,16 @@ def download(
 
     if not engine_instance.is_available():
         print_error(f"Engine '{engine}' is not installed")
-        print_info(f"Install with: uv pip install transcript-cli[{engine.replace('-', '')}]")
+        print_info(
+            f"Install with: uv pip install transcript-cli[{ENGINE_EXTRAS.get(engine, engine)}]"
+        )
         raise typer.Exit(1)
+
+    model = model or (
+        "base"
+        if "base" in engine_instance.supported_models
+        else engine_instance.supported_models[0]
+    )
 
     console.print(f"Downloading model [cyan]{model}[/cyan] for [cyan]{engine}[/cyan]...")
 
