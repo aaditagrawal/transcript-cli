@@ -217,7 +217,10 @@ def transcribe(
             output = path if path.is_dir() else path.parent
     elif len(files) > 1:
         destination = output or (path if path.is_dir() else path.parent)
-        if destination.exists() and not destination.is_dir() or destination.suffix:
+        if (destination.exists() and not destination.is_dir()) or (
+            not destination.exists()
+            and destination.suffix in {".txt", ".srt", ".vtt", ".json", ".md"}
+        ):
             print_error("Multiple inputs require an output directory, not a shared file")
             raise typer.Exit(1)
         root = path if path.is_dir() else path.parent

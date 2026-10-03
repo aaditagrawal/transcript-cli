@@ -142,3 +142,16 @@ def test_registry_works_in_fresh_process():
         text=True,
     )
     assert result.returncode == 0, result.stderr
+
+
+def test_existing_dotted_output_directory_is_supported(tmp_path, engine):
+    for name in ["a.wav", "b.wav"]:
+        (tmp_path / name).touch()
+    output = tmp_path / "transcripts.v1"
+    output.mkdir()
+    result = CliRunner().invoke(
+        main.app, ["transcribe", str(tmp_path), "-m", "fake", "-o", str(output)]
+    )
+    assert result.exit_code == 0, result.output
+    assert (output / "a.txt").exists()
+    assert (output / "b.txt").exists()
