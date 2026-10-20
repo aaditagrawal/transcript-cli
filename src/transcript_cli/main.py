@@ -5,6 +5,8 @@ from pathlib import Path
 from typing import Annotated
 
 import typer
+from typer._click import Context as GroupContext
+from typer.core import TyperGroup
 
 from . import __version__
 from .audio import discover_files, get_audio_duration, prepare_audio
@@ -34,8 +36,28 @@ from .ui import (
     prompt_output_format,
 )
 
+
+class TranscriptGroup(TyperGroup):
+    """Keep file shorthand without consuming registered command names."""
+
+    def parse_args(self, ctx: GroupContext, args: list[str]) -> list[str]:
+        if args:
+            options, remaining, _ = self.make_parser(ctx).parse_args(args=list(args))
+            if (
+                remaining
+                and options.get("path") is None
+                and self.get_command(ctx, remaining[0]) is None
+            ):
+                prefix = args[: len(args) - len(remaining)]
+                if prefix[-1:] == ["--"]:
+                    prefix = prefix[:-1]
+                args = [*prefix, f"--path={remaining[0]}", *remaining[1:]]
+        return super().parse_args(ctx, args)
+
+
 # Initialize Typer app
 app = typer.Typer(
+    cls=TranscriptGroup,
     name="transcript",
     help="🎙️ Multi-engine audio/video transcription CLI",
     no_args_is_help=True,
@@ -52,8 +74,9 @@ def main_callback(
     ctx: typer.Context,
     path: Annotated[
         Path | None,
-        typer.Argument(
-            help="Path to audio/video file (runs transcription directly)",
+        typer.Option(
+            "--path",
+            help="Path to audio/video file; also accepts file shorthand without --path",
         ),
     ] = None,
     version: Annotated[

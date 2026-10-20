@@ -19,6 +19,17 @@ uv pip install mlx-whisper
 
 ## Usage
 
+List engines, formats, or models without starting a transcription:
+
+```bash
+transcript list-engines
+transcript list-formats
+transcript list-models
+```
+
+File shorthand still works. If a filename matches a command, use an explicit path,
+such as `transcript --path list-engines`, or prefix it with `./`.
+
 ### Interactive Mode (Recommended for First Use)
 
 Just run with a file - you'll be prompted for options:
