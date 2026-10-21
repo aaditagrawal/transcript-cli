@@ -1,12 +1,16 @@
 """Engine registry and base classes."""
 
+from typing import TypeVar
+
 from .base import TranscribeOptions, TranscriptionEngine, TranscriptionResult
 
 # Engine registry - populated on import
+Engine = TypeVar("Engine", bound=TranscriptionEngine)
+
 _engines: dict[str, type[TranscriptionEngine]] = {}
 
 
-def register_engine(engine_class: type[TranscriptionEngine]) -> type[TranscriptionEngine]:
+def register_engine(engine_class: type[Engine]) -> type[Engine]:
     """Decorator to register an engine class."""
     _engines[engine_class.name] = engine_class
     return engine_class
@@ -57,25 +61,7 @@ def get_best_engine() -> TranscriptionEngine | None:
 # Import engines to trigger registration
 def _load_engines() -> None:
     """Load all engine modules."""
-    try:
-        from . import faster_whisper  # noqa: F401
-    except ImportError:
-        pass
-
-    try:
-        from . import insanely_fast_whisper  # noqa: F401
-    except ImportError:
-        pass
-
-    try:
-        from . import parakeet  # noqa: F401
-    except ImportError:
-        pass
-
-    try:
-        from . import mlx_whisper  # noqa: F401
-    except ImportError:
-        pass
+    from . import faster_whisper, insanely_fast_whisper, mlx_whisper, parakeet  # noqa: F401
 
 
 __all__ = [

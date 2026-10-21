@@ -9,6 +9,9 @@ on:
 jobs:
   quality:
     runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        python: ["3.10", "3.12", "3.15"]
     steps:
       - name: Checkout
         uses: actions/checkout@v7.0.1
@@ -19,16 +22,34 @@ jobs:
           enable-cache: true
 
       - name: Set up Python
-        run: uv python install 3.12
+        run: uv python install ${{ matrix.python }}
 
       - name: Sync dependencies
-        run: uv sync --extra dev
+        run: uv sync --frozen --python ${{ matrix.python }} --group dev
 
       - name: Ruff check
-        run: uv run ruff check .
+        run: uv run --frozen --python ${{ matrix.python }} ruff check .
 
       - name: Ruff format
-        run: uv run ruff format --check .
+        run: uv run --frozen --python ${{ matrix.python }} ruff format --check .
+
+      - name: Type check
+        run: uv run --frozen --python ${{ matrix.python }} ty check
 
       - name: Pytest
-        run: uv run pytest --override-ini="addopts=" -q
+        run: uv run --frozen --python ${{ matrix.python }} pytest --override-ini="addopts=" -q
+
+  faster-decoder:
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        python: ["3.10", "3.12"]
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: astral-sh/setup-uv@v10.3.0
+        with:
+          enable-cache: true
+      - name: Install the locked CPU inference dependencies
+        run: uv sync --frozen --python ${{ matrix.python }} --extra faster --no-dev
+      - name: Decode stereo audio and resample without a model download
+        run: uv run --frozen --python ${{ matrix.python }} --extra faster --no-dev python scripts/check_faster_decoder.py

@@ -29,18 +29,23 @@ dependencies = [
 [project.optional-dependencies]
 # Faster Whisper - works on NVIDIA GPU and CPU
 faster = [
-    "faster-whisper>=1.2.1",
+    # Upstream fix preserves PyAV <19 metadata handling and supports PyAV 19.
+    "faster-whisper @ git+https://github.com/SYSTRAN/faster-whisper.git@2ce7f9d7a9fbe315a5804a33bf7224d42e101174",
 ]
 
 # Insanely Fast Whisper - NVIDIA GPU with maximum throughput
 insanely = [
-    "insanely-fast-whisper>=0.0.15",
+    "transformers[torch]>=5.20.2",
+    "librosa>=0.11.0",
+    "soundfile>=0.13.1",
     "flash-attn>=2.8.3.post2; platform_system != 'Darwin'",
 ]
 
-# Parakeet TDT v3 - NVIDIA NeMo (large dependency)
+# Parakeet TDT v3 - NVIDIA model through the maintained Transformers runtime
 parakeet = [
-    "nemo_toolkit[asr]>=3.0.0",
+    "transformers[torch]>=5.20.2",
+    "librosa>=0.11.0",
+    "soundfile>=0.13.1",
 ]
 
 # MLX Whisper - Apple Silicon native
@@ -85,6 +90,10 @@ Repository = "https://github.com/aaditagrawal/transcript-cli"
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+# The Faster Whisper extra pins a vetted upstream compatibility fix.
+[tool.hatch.metadata]
+allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/transcript_cli"]

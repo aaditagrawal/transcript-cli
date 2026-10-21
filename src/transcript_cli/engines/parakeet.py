@@ -1,9 +1,11 @@
-"""NVIDIA Parakeet TDT v3 engine using NeMo."""
+"""NVIDIA Parakeet TDT v3 through Transformers, without NeMo's training stack."""
 
+import math
+import re
 from collections.abc import Callable
 from pathlib import Path
 
-from . import register_engine
+from . import dependencies, register_engine
 from .base import (
     Segment,
     TranscribeOptions,
@@ -13,41 +15,116 @@ from .base import (
 )
 
 
+def _timestamped_words(text: str, tokens: list[dependencies.TokenTimestamp]) -> list[WordTimestamp]:
+    """Align decoded token spans to words without inventing token durations."""
+    spans: list[tuple[int, int, float, float]] = []
+    cursor = 0
+    for token in tokens:
+        piece = token["token"]
+        start, end = token["start"], token["end"]
+        if not math.isfinite(start) or not math.isfinite(end) or start < 0 or end < start:
+            raise ValueError("Parakeet returned invalid token timestamps")
+        if not piece:
+            continue
+        position = text.find(piece, cursor)
+        if position < 0 or text[cursor:position].strip():
+            raise ValueError("Parakeet token timestamps do not match the decoded text")
+        spans.append((position, position + len(piece), start, end))
+        cursor = position + len(piece)
+    if text[cursor:].strip():
+        raise ValueError("Parakeet returned incomplete token timestamps")
+
+    words = []
+    span_index = 0
+    for word in re.finditer(r"\S+", text):
+        while span_index < len(spans) and spans[span_index][1] <= word.start():
+            span_index += 1
+        matching = []
+        index = span_index
+        while index < len(spans) and spans[index][0] < word.end():
+            matching.append(spans[index])
+            index += 1
+        if not matching:
+            raise ValueError("Parakeet returned a word without timestamps")
+        words.append(
+            WordTimestamp(word.group(), min(s[2] for s in matching), max(s[3] for s in matching))
+        )
+    return words
+
+
+def _segments(words: list[WordTimestamp], include_words: bool) -> list[Segment]:
+    segments = []
+    current: list[WordTimestamp] = []
+    for word in words:
+        if current and (word.start - current[-1].end >= 1 or word.end - current[0].start > 30):
+            segments.append(
+                Segment(
+                    " ".join(w.word for w in current),
+                    current[0].start,
+                    current[-1].end,
+                    list(current) if include_words else [],
+                )
+            )
+            current = []
+        current.append(word)
+        if word.word.endswith((".", "?", "!", "。", "？", "！")):
+            segments.append(
+                Segment(
+                    " ".join(w.word for w in current),
+                    current[0].start,
+                    current[-1].end,
+                    list(current) if include_words else [],
+                )
+            )
+            current = []
+    if current:
+        segments.append(
+            Segment(
+                " ".join(w.word for w in current),
+                current[0].start,
+                current[-1].end,
+                list(current) if include_words else [],
+            )
+        )
+    return segments
+
+
 @register_engine
 class ParakeetEngine(TranscriptionEngine):
-    """NVIDIA Parakeet TDT v3 using NeMo toolkit."""
+    """The NVIDIA Parakeet v3 model with duration-based token and word timestamps."""
 
     name = "parakeet"
     description = "NVIDIA Parakeet TDT v3 - multilingual with precise timestamps"
-    supported_models = [
-        "nvidia/parakeet-tdt-0.6b-v3",
-    ]
+    supported_models = ["nvidia/parakeet-tdt-0.6b-v3"]
     supported_platforms = ["nvidia"]
 
     def __init__(self) -> None:
-        self._model = None
-        self._model_name = None
+        self._model: dependencies.TDTModel | None = None
+        self._processor: dependencies.TDTProcessor | None = None
+        self._model_key: tuple[str, str] | None = None
 
     def is_available(self) -> bool:
-        """Check if NeMo is installed and CUDA is available."""
         try:
-            import nemo.collections.asr as nemo_asr  # noqa: F401
-            import torch
-
-            return torch.cuda.is_available()
+            dependencies.parakeet_transformers()
+            dependencies.librosa()
+            return dependencies.torch().cuda.is_available()
         except ImportError:
             return False
 
-    def _load_model(self, model: str):
-        """Load or reuse the model."""
-        import nemo.collections.asr as nemo_asr
-
-        if self._model is not None and self._model_name == model:
-            return self._model
-
-        self._model = nemo_asr.models.ASRModel.from_pretrained(model_name=model)
-        self._model_name = model
-        return self._model
+    def _load_model(
+        self, model: str, device: str
+    ) -> tuple[dependencies.TDTModel, dependencies.TDTProcessor]:
+        key = (model, device)
+        if self._model is None or self._processor is None or self._model_key != key:
+            transformers = dependencies.parakeet_transformers()
+            self._processor = transformers.AutoProcessor.from_pretrained(model)
+            self._model = (
+                transformers.AutoModelForTDT.from_pretrained(model, use_safetensors=True)
+                .to(device)
+                .eval()
+            )
+            self._model_key = key
+        return self._model, self._processor
 
     def transcribe(
         self,
@@ -56,79 +133,25 @@ class ParakeetEngine(TranscriptionEngine):
         options: TranscribeOptions,
         progress_callback: Callable[[float], None] | None = None,
     ) -> TranscriptionResult:
-        """Transcribe using NeMo Parakeet."""
-        asr_model = self._load_model(model)
-
-        # Parakeet always provides timestamps
-        output = asr_model.transcribe(
-            [str(audio_path)],
-            timestamps=True,
+        device = "cuda" if options.device == "auto" else options.device
+        asr_model, processor = self._load_model(model, device)
+        audio, sample_rate = dependencies.librosa().load(str(audio_path), sr=16000, mono=True)
+        inputs = processor(audio, sampling_rate=sample_rate, return_tensors="pt")
+        inputs = inputs.to(asr_model.device, dtype=asr_model.dtype)
+        with dependencies.torch().inference_mode():
+            output = asr_model.generate(**inputs, return_dict_in_generate=True)
+        texts, timestamp_batches = processor.decode(
+            output.sequences, durations=output.durations, skip_special_tokens=True
         )
-
-        if not output:
-            return TranscriptionResult(
-                text="",
-                segments=[],
-                language="en",
-            )
-
-        result = output[0]
-
-        # Build segments from timestamps
-        segments = []
-        full_text = result.text if hasattr(result, "text") else str(result)
-
-        # Extract segment and word timestamps if available
-        if hasattr(result, "timestamp"):
-            ts = result.timestamp
-
-            # Segment-level timestamps
-            segment_ts = ts.get("segment", [])
-            word_ts = ts.get("word", [])
-
-            for seg in segment_ts:
-                # Find words belonging to this segment
-                seg_words = []
-                if options.word_timestamps and word_ts:
-                    for w in word_ts:
-                        if w["start"] >= seg["start"] and w["end"] <= seg["end"]:
-                            seg_words.append(
-                                WordTimestamp(
-                                    word=w.get("word", w.get("char", "")),
-                                    start=w["start"],
-                                    end=w["end"],
-                                    confidence=w.get("confidence", 1.0),
-                                )
-                            )
-
-                segments.append(
-                    Segment(
-                        text=seg.get("segment", "").strip(),
-                        start=seg["start"],
-                        end=seg["end"],
-                        words=seg_words,
-                    )
-                )
-        else:
-            # Fallback: single segment with full text
-            segments.append(
-                Segment(
-                    text=full_text,
-                    start=0.0,
-                    end=0.0,
-                    words=[],
-                )
-            )
-
-        # Detect language if available
-        language = "en"
-        if hasattr(result, "language"):
-            language = result.language
-
+        if len(texts) != 1 or len(timestamp_batches) != 1:
+            raise ValueError("Parakeet returned an unexpected number of transcription results")
+        text = texts[0]
+        words = _timestamped_words(text, timestamp_batches[0])
         return TranscriptionResult(
-            text=full_text,
-            segments=segments,
-            language=language,
+            text=text.strip(),
+            segments=_segments(words, options.word_timestamps),
+            language=options.language or "en",
+            duration=len(audio) / sample_rate,
         )
 
     def download_model(
@@ -136,42 +159,25 @@ class ParakeetEngine(TranscriptionEngine):
         model: str,
         progress_callback: Callable[[float, str], None] | None = None,
     ) -> None:
-        """Download model from NGC/HuggingFace."""
-        import nemo.collections.asr as nemo_asr
-
         if progress_callback:
             progress_callback(0.0, "Downloading Parakeet model...")
-
-        # Loading triggers download
-        nemo_asr.models.ASRModel.from_pretrained(model_name=model)
-
+        dependencies.hub().snapshot_download(
+            repo_id=model, allow_patterns=["*.json", "*.safetensors"]
+        )
         if progress_callback:
             progress_callback(1.0, "Complete")
 
     def get_model_path(self, model: str) -> Path | None:
-        """Get the cached model path if downloaded."""
         try:
-            from huggingface_hub import try_to_load_from_cache
-
-            # Parakeet uses nvidia namespace
             if "/" not in model:
                 model = f"nvidia/{model}"
-
-            cache_result = try_to_load_from_cache(model, "model_config.yaml")
-            if isinstance(cache_result, str):
-                return Path(cache_result).parent
-            return None
+            cached = dependencies.hub().try_to_load_from_cache(model, "config.json")
+            return Path(cached).parent if isinstance(cached, str) else None
         except Exception:
             return None
 
     def list_downloaded_models(self) -> list[str]:
-        """List locally cached models."""
-        downloaded = []
-        for model in self.supported_models:
-            if self.get_model_path(model) is not None:
-                downloaded.append(model)
-        return downloaded
+        return [model for model in self.supported_models if self.get_model_path(model) is not None]
 
     def is_model_downloaded(self, model: str) -> bool:
-        """Check if a specific model is downloaded."""
         return self.get_model_path(model) is not None

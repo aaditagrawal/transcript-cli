@@ -3,7 +3,7 @@
 from collections.abc import Callable
 from pathlib import Path
 
-from . import register_engine
+from . import dependencies, register_engine
 from .base import (
     Segment,
     TranscribeOptions,
@@ -39,8 +39,8 @@ class InsanelyFastWhisperEngine(TranscriptionEngine):
     def is_available(self) -> bool:
         """Check if insanely-fast-whisper dependencies are available."""
         try:
-            import torch
-            from transformers import pipeline  # noqa: F401
+            torch = dependencies.torch()
+            dependencies.transformers()
 
             return torch.cuda.is_available()
         except ImportError:
@@ -78,26 +78,20 @@ class InsanelyFastWhisperEngine(TranscriptionEngine):
         progress_callback: Callable[[float], None] | None = None,
     ) -> TranscriptionResult:
         """Transcribe using insanely-fast-whisper pipeline."""
-        import torch
-        from transformers import pipeline
+        torch = dependencies.torch()
+        pipeline = dependencies.transformers().pipeline
 
         model_name = self._normalize_model_name(model)
 
         # Check for Flash Attention 2 support
-        use_flash = False
-        try:
-            import flash_attn  # noqa: F401
-
-            use_flash = True
-        except ImportError:
-            pass
+        use_flash = dependencies.flash_attention_available()
 
         # Create pipeline
         import sys
 
         try:
             # Quick check - if this fails, model needs download
-            from transformers.utils import cached_file
+            cached_file = dependencies.transformers_cache().cached_file
 
             cached_file(model_name, "config.json", _raise_exceptions_for_missing_entries=False)
         except Exception:
@@ -175,7 +169,9 @@ class InsanelyFastWhisperEngine(TranscriptionEngine):
         progress_callback: Callable[[float, str], None] | None = None,
     ) -> None:
         """Download model from HuggingFace."""
-        from transformers import AutoModelForSpeechSeq2Seq, AutoProcessor
+        transformers = dependencies.transformers()
+        AutoModelForSpeechSeq2Seq = transformers.AutoModelForSpeechSeq2Seq
+        AutoProcessor = transformers.AutoProcessor
 
         model_name = self._normalize_model_name(model)
 
@@ -191,7 +187,7 @@ class InsanelyFastWhisperEngine(TranscriptionEngine):
     def get_model_path(self, model: str) -> Path | None:
         """Get the cached model path if downloaded."""
         try:
-            from huggingface_hub import try_to_load_from_cache
+            try_to_load_from_cache = dependencies.hub().try_to_load_from_cache
 
             model_name = self._normalize_model_name(model)
             # Check if config.json is cached (indicates model is downloaded)

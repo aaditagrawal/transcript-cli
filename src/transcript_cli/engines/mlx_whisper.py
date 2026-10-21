@@ -3,7 +3,7 @@
 from collections.abc import Callable
 from pathlib import Path
 
-from . import register_engine
+from . import dependencies, register_engine
 from .base import (
     Segment,
     Task,
@@ -36,7 +36,7 @@ class MLXWhisperEngine(TranscriptionEngine):
         try:
             import platform
 
-            import mlx_whisper  # noqa: F401
+            dependencies.mlx_whisper()
 
             return platform.machine() == "arm64" and platform.system() == "Darwin"
         except ImportError:
@@ -73,7 +73,7 @@ class MLXWhisperEngine(TranscriptionEngine):
         progress_callback: Callable[[float], None] | None = None,
     ) -> TranscriptionResult:
         """Transcribe using mlx-whisper."""
-        import mlx_whisper
+        mlx_whisper = dependencies.mlx_whisper()
 
         model_name = self._normalize_model_name(model)
 
@@ -133,7 +133,7 @@ class MLXWhisperEngine(TranscriptionEngine):
         progress_callback: Callable[[float, str], None] | None = None,
     ) -> None:
         """Download model from HuggingFace."""
-        from huggingface_hub import snapshot_download
+        snapshot_download = dependencies.hub().snapshot_download
 
         model_name = self._normalize_model_name(model)
 
@@ -148,7 +148,7 @@ class MLXWhisperEngine(TranscriptionEngine):
     def get_model_path(self, model: str) -> Path | None:
         """Get the cached model path if downloaded."""
         try:
-            from huggingface_hub import try_to_load_from_cache
+            try_to_load_from_cache = dependencies.hub().try_to_load_from_cache
 
             model_name = self._normalize_model_name(model)
             cache_result = try_to_load_from_cache(model_name, "config.json")

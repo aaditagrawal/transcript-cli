@@ -96,7 +96,7 @@ fi
 
 echo "📦 Installing transcript-cli with insanely-fast-whisper engine..."
 uv pip install git+https://github.com/aaditagrawal/transcript-cli.git
-uv pip install insanely-fast-whisper transformers accelerate
+uv pip install "transformers[torch]>=5.20.2" "librosa>=0.11.0" "soundfile>=0.13.1"
 
 echo "📦 Installing Flash Attention 2..."
 # Install build dependencies (setuptools required for flash-attn)

@@ -3,7 +3,7 @@
 from collections.abc import Callable
 from pathlib import Path
 
-from . import register_engine
+from . import dependencies, register_engine
 from .base import (
     Segment,
     TranscribeOptions,
@@ -39,13 +39,13 @@ class FasterWhisperEngine(TranscriptionEngine):
     supported_platforms = ["nvidia", "cpu"]
 
     def __init__(self) -> None:
-        self._model = None
-        self._model_name = None
+        self._model: dependencies.FasterModel | None = None
+        self._model_name: str | None = None
 
     def is_available(self) -> bool:
         """Check if faster-whisper is installed."""
         try:
-            import faster_whisper  # noqa: F401
+            dependencies.faster_whisper()
 
             return True
         except ImportError:
@@ -74,7 +74,7 @@ class FasterWhisperEngine(TranscriptionEngine):
 
     def _load_model(self, model: str, options: TranscribeOptions):
         """Load or reuse the model."""
-        from faster_whisper import WhisperModel
+        WhisperModel = dependencies.faster_whisper().WhisperModel
 
         device, compute_type = self._get_device_and_compute(options)
 
@@ -98,7 +98,7 @@ class FasterWhisperEngine(TranscriptionEngine):
         progress_callback: Callable[[float], None] | None = None,
     ) -> TranscriptionResult:
         """Transcribe audio using faster-whisper."""
-        from faster_whisper import BatchedInferencePipeline
+        BatchedInferencePipeline = dependencies.faster_whisper().BatchedInferencePipeline
 
         whisper_model = self._load_model(model, options)
 
@@ -156,7 +156,7 @@ class FasterWhisperEngine(TranscriptionEngine):
         progress_callback: Callable[[float, str], None] | None = None,
     ) -> None:
         """Download model (handled automatically by faster-whisper)."""
-        from faster_whisper import WhisperModel
+        WhisperModel = dependencies.faster_whisper().WhisperModel
 
         if progress_callback:
             progress_callback(0.0, "Downloading model...")
@@ -170,7 +170,7 @@ class FasterWhisperEngine(TranscriptionEngine):
     def get_model_path(self, model: str) -> Path | None:
         """Get the cached model path if downloaded."""
         try:
-            from huggingface_hub import try_to_load_from_cache
+            try_to_load_from_cache = dependencies.hub().try_to_load_from_cache
 
             # faster-whisper uses Systran models on HuggingFace
             if model in ["turbo", "large-v3-turbo"]:

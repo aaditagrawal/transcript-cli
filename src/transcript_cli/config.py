@@ -69,9 +69,9 @@ def _has_nvidia_gpu() -> bool:
 def _has_cuda() -> bool:
     """Check if CUDA is available via PyTorch."""
     try:
-        import torch
+        from .engines import dependencies
 
-        return torch.cuda.is_available()
+        return dependencies.torch().cuda.is_available()
     except ImportError:
         return False
 

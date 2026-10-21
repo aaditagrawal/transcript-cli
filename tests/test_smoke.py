@@ -5,4 +5,4 @@ from transcript_cli import __version__
 
 def test_package_imports() -> None:
     assert isinstance(__version__, str)
-    assert __version__
+    assert __version__ == "0.1.0"
