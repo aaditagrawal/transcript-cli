@@ -1,9 +1,10 @@
 """Audio file handling and extraction from video."""
 
+import json
+import math
+import subprocess
 import tempfile
 from pathlib import Path
-
-import ffmpeg
 
 from .config import AUDIO_EXTENSIONS, SUPPORTED_EXTENSIONS, VIDEO_EXTENSIONS
 
@@ -47,6 +48,17 @@ def discover_files(path: Path, recursive: bool = False) -> list[Path]:
     return []
 
 
+def _run_media_command(arguments: list[str]) -> bytes:
+    """Run an existing FFmpeg tool and retain its diagnostics on failure."""
+    try:
+        return subprocess.run(
+            arguments, stdin=subprocess.DEVNULL, capture_output=True, check=True
+        ).stdout
+    except subprocess.CalledProcessError as error:
+        detail = error.stderr.decode(errors="replace").strip()
+        raise RuntimeError(f"{arguments[0]} failed: {detail}") from error
+
+
 def extract_audio(video_path: Path, output_path: Path | None = None) -> Path:
     """
     Extract audio from video file to WAV format.
@@ -58,24 +70,35 @@ def extract_audio(video_path: Path, output_path: Path | None = None) -> Path:
     Returns:
         Path to extracted audio file
     """
+    temporary = output_path is None
     if output_path is None:
         # Create temp file that will persist
         temp = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
         output_path = Path(temp.name)
         temp.close()
 
-    # Extract audio using ffmpeg
-    (
-        ffmpeg.input(str(video_path))
-        .output(
-            str(output_path),
-            acodec="pcm_s16le",  # 16-bit PCM
-            ar=16000,  # 16kHz sample rate (optimal for Whisper)
-            ac=1,  # Mono
+    try:
+        _run_media_command(
+            [
+                "ffmpeg",
+                "-nostdin",
+                "-y",
+                "-i",
+                str(video_path.absolute()),
+                "-vn",
+                "-acodec",
+                "pcm_s16le",
+                "-ar",
+                "16000",
+                "-ac",
+                "1",
+                str(output_path.absolute()),
+            ]
         )
-        .overwrite_output()
-        .run(quiet=True)
-    )
+    except BaseException:
+        if temporary:
+            output_path.unlink(missing_ok=True)
+        raise
 
     return output_path
 
@@ -83,9 +106,14 @@ def extract_audio(video_path: Path, output_path: Path | None = None) -> Path:
 def get_audio_duration(path: Path) -> float:
     """Get audio/video duration in seconds."""
     try:
-        probe = ffmpeg.probe(str(path))
-        return float(probe["format"]["duration"])
-    except (ffmpeg.Error, KeyError):
+        probe = json.loads(
+            _run_media_command(
+                ["ffprobe", "-v", "error", "-show_format", "-of", "json", str(path.absolute())]
+            )
+        )
+        duration = float(probe["format"]["duration"])
+        return duration if math.isfinite(duration) and duration >= 0 else 0.0
+    except (OSError, RuntimeError, ValueError, KeyError, TypeError):
         return 0.0
 
 
